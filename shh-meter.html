@@ -3,25 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#eef2ee">
+<meta name="theme-color" content="#ecf4f3">
 <title>Shh Meter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: one calm column, like a library card. Big reading up top, history strip, then the rules. */
 :root{
-  --bg:#eef2ee; --card:#f8faf7; --ink:#1f2a25; --muted:#5d6b64; --line:#d3dcd5;
-  --accent:#2f6b57; --accent-ink:#ffffff; --warn:#b5762a; --loud:#b5483a; --hush:#4a6f93;
+  --bg:#ecf4f3; --card:#f7fbfb; --ink:#16292a; --muted:#55706f; --line:#cbdedc;
+  --accent:#0e7c7b; --accent-ink:#ffffff; --warn:#b5762a; --loud:#b5483a; --hush:#4a6f93;
   --display:"Young Serif",Georgia,"Times New Roman",serif;
   --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#141b18; --card:#1b2420; --ink:#e3ebe6; --muted:#9aaba2; --line:#2c3833;
-  --accent:#6fbf9f; --accent-ink:#10201a; --warn:#e0a55a; --loud:#e57d6e; --hush:#8fb3d6; color-scheme:dark}}
+  --bg:#0e1a1b; --card:#142426; --ink:#dff0ef; --muted:#90adab; --line:#24393b;
+  --accent:#4ec5bf; --accent-ink:#05201f; --warn:#e0a55a; --loud:#e57d6e; --hush:#8fb3d6; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#141b18; --card:#1b2420; --ink:#e3ebe6; --muted:#9aaba2; --line:#2c3833;
-  --accent:#6fbf9f; --accent-ink:#10201a; --warn:#e0a55a; --loud:#e57d6e; --hush:#8fb3d6; color-scheme:dark}
+  --bg:#0e1a1b; --card:#142426; --ink:#dff0ef; --muted:#90adab; --line:#24393b;
+  --accent:#4ec5bf; --accent-ink:#05201f; --warn:#e0a55a; --loud:#e57d6e; --hush:#8fb3d6; color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);
@@ -75,6 +75,10 @@ canvas{width:100%;height:72px;display:block}
 .field small{color:var(--muted);font-size:.82rem;line-height:1.4}
 input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
 select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.rec{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rec .btn{padding:10px 6px}
+.btn:disabled{opacity:.45;cursor:default}
+body[data-rec="on"] #recBtn{border-color:var(--loud);color:var(--loud)}
 .note{font-size:.82rem;color:var(--muted);line-height:1.5;margin:0 4px}
 .err{color:var(--loud);font-size:.9rem;margin:0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -127,10 +131,20 @@ select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--li
     <div class="field">
       <div class="top"><label for="style">Style</label></div>
       <select id="style">
-        <option value="gentle">Gentle, one soft shhh</option>
-        <option value="firm">Firm, one long shhhhh</option>
-        <option value="double">Double, shh shhhh</option>
+        <option value="soft">Soft, one warm shhh</option>
+        <option value="softlong">Soft and long, shhhhhh</option>
+        <option value="softdouble">Soft double, shh shhhh</option>
+        <option value="record">My recording</option>
       </select>
+    </div>
+    <div class="field">
+      <div class="top"><label>Your own shush</label><output id="recState">None yet</output></div>
+      <div class="rec">
+        <button class="btn ghost" id="recBtn">Record</button>
+        <button class="btn ghost" id="recPlay" disabled>Play</button>
+        <button class="btn ghost" id="recDel" disabled>Remove</button>
+      </div>
+      <small>Tap Record, say "shhh" the way you'd like it, then tap Stop (it stops by itself after 4 seconds). It stays saved on this phone and in this browser.</small>
     </div>
     <div class="field">
       <div class="top"><label for="vol">Shush volume</label><output id="volOut"></output></div>
@@ -153,9 +167,10 @@ select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--li
 (() => {
   const $ = id => document.getElementById(id);
   const MIN_DB = 40, MAX_DB = 110;
-  const defaults = { limit: 75, hold: 4, cool: 30, style: "gentle", vol: 80, offset: 94 };
+  const defaults = { limit: 75, hold: 4, cool: 30, style: "soft", vol: 70, offset: 94 };
   let cfg = { ...defaults };
   try { cfg = { ...defaults, ...JSON.parse(localStorage.getItem("shh-cfg") || "{}") }; } catch (e) {}
+  if (!["soft", "softlong", "softdouble", "record"].includes(cfg.style)) cfg.style = "soft";
   const save = () => { try { localStorage.setItem("shh-cfg", JSON.stringify(cfg)); } catch (e) {} };
 
   // ----- controls -----
@@ -199,6 +214,7 @@ select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--li
       ctx = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (ctx.state === "suspended") await ctx.resume();
+    if (recBlob && !recBuffer) await decodeRec();
   }
 
   let wakeLock = null;
@@ -295,36 +311,129 @@ select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--li
     setState("shushing", "Shhh...");
   }
 
-  // Synthesized "shh": shaped noise centered where the human sh sound lives (about 2 to 6 kHz)
+  // Soft synthesized "shh": pink noise (more low end, less hiss than white noise),
+  // shaped around 2 kHz with the harsh top end rolled off, and a slow swell in and out.
+  function pinkNoise(n) {
+    const d = new Float32Array(n);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < n; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759;
+      b2 = 0.96900 * b2 + w * 0.1538520; b3 = 0.86650 * b3 + w * 0.3104856;
+      b4 = 0.55000 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.0168980;
+      d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+      b6 = w * 0.115926;
+    }
+    return d;
+  }
+
   function shushOnce(at, dur, peak) {
     const n = Math.floor(ctx.sampleRate * dur);
     const b = ctx.createBuffer(1, n, ctx.sampleRate);
-    const d = b.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    b.copyToChannel(pinkNoise(n), 0);
     const src = ctx.createBufferSource(); src.buffer = b;
-    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1600;
-    const bp = ctx.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = 2900; bp.Q.value = 1.1; bp.gain.value = 9;
-    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 7000;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 700; hp.Q.value = 0.5;
+    const pk = ctx.createBiquadFilter(); pk.type = "peaking"; pk.frequency.value = 2100; pk.Q.value = 0.7; pk.gain.value = 5;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 4200; lp.Q.value = 0.5;
     const g = ctx.createGain();
     const v = peak * cfg.vol / 100;
+    const rise = Math.min(0.4, dur * 0.3);
     g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(v, at + 0.12);
-    g.gain.linearRampToValueAtTime(v * 0.85, at + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(v, at + rise);
+    g.gain.linearRampToValueAtTime(v * 0.8, at + dur * 0.65);
     g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-    // slight breathy wobble
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 5.5;
-    const lg = ctx.createGain(); lg.gain.value = v * 0.08;
-    lfo.connect(lg); lg.connect(g.gain);
-    src.connect(hp); hp.connect(bp); bp.connect(lp); lp.connect(g); g.connect(ctx.destination);
-    src.start(at); src.stop(at + dur); lfo.start(at); lfo.stop(at + dur);
+    src.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(g); g.connect(ctx.destination);
+    src.start(at); src.stop(at + dur);
+  }
+
+  function playRecording(at) {
+    const src = ctx.createBufferSource(); src.buffer = recBuffer;
+    const g = ctx.createGain(), v = cfg.vol / 100, dur = recBuffer.duration;
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(v, at + 0.05);
+    g.gain.setValueAtTime(v, at + Math.max(0.05, dur - 0.15));
+    g.gain.linearRampToValueAtTime(0, at + dur);
+    src.connect(g); g.connect(ctx.destination);
+    src.start(at);
+    return dur;
   }
 
   function playShush() {
     const t = ctx.currentTime + 0.05;
-    if (cfg.style === "gentle") { shushOnce(t, 1.3, 0.6); return 1.35; }
-    if (cfg.style === "firm") { shushOnce(t, 2.2, 0.95); return 2.25; }
-    shushOnce(t, 0.45, 0.8); shushOnce(t + 0.65, 1.6, 0.9); return 2.3;
+    if (cfg.style === "record" && recBuffer) return playRecording(t) + 0.05;
+    if (cfg.style === "softlong") { shushOnce(t, 2.6, 0.7); return 2.65; }
+    if (cfg.style === "softdouble") { shushOnce(t, 0.6, 0.5); shushOnce(t + 0.8, 1.8, 0.65); return 2.65; }
+    shushOnce(t, 1.6, 0.6); return 1.65;
   }
+
+  // ----- your own recording: kept in this browser with IndexedDB -----
+  let recBlob = null, recBuffer = null, recorder = null, recStream = null, recTimer = null;
+  function idb(mode, fn) {
+    return new Promise((res, rej) => {
+      try {
+        const open = indexedDB.open("shh-meter", 1);
+        open.onupgradeneeded = () => open.result.createObjectStore("audio");
+        open.onsuccess = () => {
+          const tx = open.result.transaction("audio", mode), req = fn(tx.objectStore("audio"));
+          tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error);
+        };
+        open.onerror = () => rej(open.error);
+      } catch (e) { rej(e); }
+    });
+  }
+  function refreshRecUI() {
+    $("recPlay").disabled = $("recDel").disabled = !recBlob;
+    $("recState").textContent = recBlob ? (recBuffer ? recBuffer.duration.toFixed(1) + " s saved" : "Saved") : "None yet";
+  }
+  async function decodeRec() {
+    if (!recBlob || !ctx) return;
+    try { recBuffer = await ctx.decodeAudioData(await recBlob.arrayBuffer()); }
+    catch (e) { recBuffer = null; showErr("That recording could not be read on this phone. Try recording it again."); }
+    refreshRecUI();
+  }
+  idb("readonly", s => s.get("shush")).then(b => { if (b) { recBlob = b; refreshRecUI(); } }).catch(() => {});
+
+  async function startRec() {
+    showErr("");
+    await ensureCtx();
+    try {
+      recStream = stream || await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) { showErr("The microphone could not be opened for recording."); return; }
+    const chunks = [];
+    try { recorder = new MediaRecorder(recStream); }
+    catch (e) { showErr("This browser cannot record audio."); return; }
+    recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+    recorder.onstop = async () => {
+      clearTimeout(recTimer);
+      if (recStream !== stream) recStream.getTracks().forEach(t => t.stop());
+      recStream = null; delete document.body.dataset.rec; $("recBtn").textContent = "Record";
+      mutedUntil = performance.now() + 500; smooth = null;
+      recBlob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      try { await idb("readwrite", s => s.put(recBlob, "shush")); } catch (e) {}
+      await decodeRec();
+      cfg.style = "record"; $("style").value = "record"; save();
+    };
+    mutedUntil = performance.now() + 60000; // do not count your own voice as party noise
+    recorder.start();
+    document.body.dataset.rec = "on"; $("recBtn").textContent = "Stop";
+    $("recState").textContent = "Recording...";
+    recTimer = setTimeout(() => recorder.state === "recording" && recorder.stop(), 4000);
+  }
+
+  $("recBtn").addEventListener("click", () => recorder && recorder.state === "recording" ? recorder.stop() : startRec());
+  $("recPlay").addEventListener("click", async () => {
+    await ensureCtx();
+    if (!recBuffer) await decodeRec();
+    if (!recBuffer) return;
+    const len = playRecording(ctx.currentTime + 0.05);
+    if (running) { mutedUntil = performance.now() + len * 1000 + 700; overSince = null; }
+  });
+  $("recDel").addEventListener("click", async () => {
+    recBlob = recBuffer = null;
+    try { await idb("readwrite", s => s.delete("shush")); } catch (e) {}
+    if (cfg.style === "record") { cfg.style = "soft"; $("style").value = "soft"; save(); }
+    refreshRecUI();
+  });
 
   $("testBtn").addEventListener("click", async () => {
     await ensureCtx();
