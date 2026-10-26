@@ -401,7 +401,7 @@ body[data-rec="on"] #recBtn{border-color:var(--loud);color:var(--loud)}
     showErr("");
     await ensureCtx();
     try {
-      recStream = stream || await navigator.mediaDevices.getUserMedia({ audio: true });
+      recStream = stream || await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     } catch (e) { showErr("The microphone could not be opened for recording."); return; }
     const chunks = [];
     try { recorder = new MediaRecorder(recStream); }

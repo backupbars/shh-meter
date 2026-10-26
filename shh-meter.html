@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ecf4f3">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Shh Meter">
 <title>Shh Meter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -397,7 +401,7 @@ body[data-rec="on"] #recBtn{border-color:var(--loud);color:var(--loud)}
     showErr("");
     await ensureCtx();
     try {
-      recStream = stream || await navigator.mediaDevices.getUserMedia({ audio: true });
+      recStream = stream || await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     } catch (e) { showErr("The microphone could not be opened for recording."); return; }
     const chunks = [];
     try { recorder = new MediaRecorder(recStream); }
